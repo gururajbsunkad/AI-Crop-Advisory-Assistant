@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "AI Crop Advisory Assistant"
+description = "A responsive agriculture assistant for farmers to record crop conditions, receive cautious AI-powered guidance, and manage advisory history."
+version = "1.0.0"
+id = "artifacts/crop-advisory"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19577
+
+[services.development]
+run = "pnpm --filter @workspace/crop-advisory run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/crop-advisory", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/crop-advisory/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19577"
+BASE_PATH = "/"
