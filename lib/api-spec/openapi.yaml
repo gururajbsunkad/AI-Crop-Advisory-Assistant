@@ -3,13 +3,21 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: AI Crop Advisory Assistant API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authenticated user operations
+  - name: profile
+    description: Farmer profile operations
+  - name: advisories
+    description: Crop advisory operations
+  - name: dashboard
+    description: Dashboard summaries
 paths:
   /healthz:
     get:
@@ -24,6 +32,154 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /auth/me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the current signed-in user
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /profile:
+    get:
+      operationId: getProfile
+      tags: [profile]
+      summary: Get the signed-in farmer profile
+      responses:
+        "200":
+          description: Farmer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerProfile"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    put:
+      operationId: updateProfile
+      tags: [profile]
+      summary: Create or update the signed-in farmer profile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileInput"
+      responses:
+        "200":
+          description: Updated farmer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FarmerProfile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+  /advisories:
+    get:
+      operationId: listAdvisories
+      tags: [advisories]
+      summary: List the signed-in user's advisories
+      parameters:
+        - $ref: "#/components/parameters/Page"
+        - $ref: "#/components/parameters/Limit"
+        - name: crop
+          in: query
+          schema:
+            type: string
+            maxLength: 80
+        - name: risk
+          in: query
+          schema:
+            type: string
+            enum: [LOW, MODERATE, HIGH, CRITICAL]
+      responses:
+        "200":
+          description: Paginated advisory history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdvisoryList"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+    post:
+      operationId: createAdvisory
+      tags: [advisories]
+      summary: Generate and save a new crop advisory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdvisoryInput"
+      responses:
+        "201":
+          description: Completed crop advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advisory"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "502":
+          description: Advisory generation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+  /advisories/{id}:
+    get:
+      operationId: getAdvisory
+      tags: [advisories]
+      summary: Get one of the signed-in user's advisories
+      parameters:
+        - $ref: "#/components/parameters/AdvisoryId"
+      responses:
+        "200":
+          description: Crop advisory
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Advisory"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      operationId: deleteAdvisory
+      tags: [advisories]
+      summary: Delete one of the signed-in user's advisories
+      parameters:
+        - $ref: "#/components/parameters/AdvisoryId"
+      responses:
+        "204":
+          description: Advisory deleted
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard metrics for the signed-in user
+      responses:
+        "200":
+          description: Dashboard metrics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +189,386 @@ components:
           type: string
       required:
         - status
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required: [error]
+    CurrentUser:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: ["string", "null"]
+        name:
+          type: ["string", "null"]
+      required: [id, email, name]
+    FarmerProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fullName:
+          type: string
+        phone:
+          type: ["string", "null"]
+        village:
+          type: ["string", "null"]
+        district:
+          type: ["string", "null"]
+        state:
+          type: ["string", "null"]
+        country:
+          type: string
+        farmingType:
+          type: ["string", "null"]
+        farmSizeAcres:
+          type: ["number", "null"]
+        preferredLanguage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        [id, fullName, phone, village, district, state, country, farmingType,
+          farmSizeAcres, preferredLanguage, createdAt, updatedAt]
+    ProfileInput:
+      type: object
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        phone:
+          type: ["string", "null"]
+          maxLength: 30
+        village:
+          type: ["string", "null"]
+          maxLength: 120
+        district:
+          type: ["string", "null"]
+          maxLength: 120
+        state:
+          type: ["string", "null"]
+          maxLength: 120
+        country:
+          type: string
+          minLength: 2
+          maxLength: 80
+        farmingType:
+          type: ["string", "null"]
+          maxLength: 120
+        farmSizeAcres:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 100000
+        preferredLanguage:
+          type: ["string", "null"]
+          maxLength: 80
+      required: [fullName]
+    AdvisoryInput:
+      type: object
+      properties:
+        cropName:
+          type: string
+          minLength: 2
+          maxLength: 120
+        cropVariety:
+          type: ["string", "null"]
+          maxLength: 120
+        location:
+          type: string
+          minLength: 2
+          maxLength: 240
+        soilType:
+          type: ["string", "null"]
+          maxLength: 80
+        soilPh:
+          type: ["number", "null"]
+          minimum: 0
+          maximum: 14
+        growthStage:
+          type: ["string", "null"]
+          enum: [Seedling, Vegetative, Flowering, Fruiting, Maturity, Harvest, Post-Harvest, Unknown, null]
+        sowingDate:
+          type: ["string", "null"]
+        irrigationMethod:
+          type: ["string", "null"]
+          enum: [Drip, Sprinkler, Flood, Furrow, Rainfed, Manual, Other, null]
+        irrigationFrequency:
+          type: ["string", "null"]
+          maxLength: 120
+        fertilizerUsage:
+          type: ["string", "null"]
+          maxLength: 2000
+        symptoms:
+          type: ["string", "null"]
+          maxLength: 4000
+        pestObservations:
+          type: ["string", "null"]
+          maxLength: 4000
+        diseaseObservations:
+          type: ["string", "null"]
+          maxLength: 4000
+        weatherConditions:
+          type: ["string", "null"]
+          maxLength: 2000
+        mainConcern:
+          type: string
+          minLength: 5
+          maxLength: 2000
+        additionalNotes:
+          type: ["string", "null"]
+          maxLength: 4000
+      required: [cropName, location, mainConcern]
+    AdvisoryIssue:
+      type: object
+      properties:
+        issue:
+          type: string
+        likelihood:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        reason:
+          type: string
+      required: [issue, likelihood, reason]
+    ImmediateAction:
+      type: object
+      properties:
+        action:
+          type: string
+        priority:
+          type: string
+          enum: [HIGH, MEDIUM, LOW]
+      required: [action, priority]
+    AdvisoryResult:
+      type: object
+      properties:
+        summary:
+          type: string
+        cropStatus:
+          type: string
+        riskLevel:
+          type: string
+          enum: [LOW, MODERATE, HIGH, CRITICAL]
+        confidence:
+          type: string
+          enum: [LOW, MEDIUM, HIGH]
+        possibleIssues:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdvisoryIssue"
+        possibleCauses:
+          type: array
+          items:
+            type: string
+        immediateActions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImmediateAction"
+        irrigationRecommendations:
+          type: array
+          items:
+            type: string
+        nutrientRecommendations:
+          type: array
+          items:
+            type: string
+        pestDiseaseRecommendations:
+          type: array
+          items:
+            type: string
+        preventiveMeasures:
+          type: array
+          items:
+            type: string
+        monitoringChecklist:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        followUpQuestions:
+          type: array
+          items:
+            type: string
+      required:
+        [summary, cropStatus, riskLevel, confidence, possibleIssues,
+          possibleCauses, immediateActions, irrigationRecommendations,
+          nutrientRecommendations, pestDiseaseRecommendations,
+          preventiveMeasures, monitoringChecklist, warnings, followUpQuestions]
+    Advisory:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cropName:
+          type: string
+        cropVariety:
+          type: ["string", "null"]
+        location:
+          type: string
+        soilType:
+          type: ["string", "null"]
+        soilPh:
+          type: ["number", "null"]
+        growthStage:
+          type: ["string", "null"]
+        sowingDate:
+          type: ["string", "null"]
+        irrigationMethod:
+          type: ["string", "null"]
+        irrigationFrequency:
+          type: ["string", "null"]
+        fertilizerUsage:
+          type: ["string", "null"]
+        symptoms:
+          type: ["string", "null"]
+        pestObservations:
+          type: ["string", "null"]
+        diseaseObservations:
+          type: ["string", "null"]
+        weatherConditions:
+          type: ["string", "null"]
+        mainConcern:
+          type: string
+        additionalNotes:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        riskLevel:
+          type: ["string", "null"]
+          enum: [LOW, MODERATE, HIGH, CRITICAL, null]
+        confidence:
+          type: ["string", "null"]
+          enum: [LOW, MEDIUM, HIGH, null]
+        advisoryResult:
+          anyOf:
+            - $ref: "#/components/schemas/AdvisoryResult"
+            - type: "null"
+        aiModel:
+          type: ["string", "null"]
+        errorMessage:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+      required:
+        [id, cropName, cropVariety, location, soilType, soilPh, growthStage,
+          sowingDate, irrigationMethod, irrigationFrequency, fertilizerUsage,
+          symptoms, pestObservations, diseaseObservations, weatherConditions,
+          mainConcern, additionalNotes, status, riskLevel, confidence,
+          advisoryResult, aiModel, errorMessage, createdAt, updatedAt]
+    AdvisorySummary:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        cropName:
+          type: string
+        location:
+          type: string
+        mainConcern:
+          type: string
+        status:
+          type: string
+          enum: [PENDING, PROCESSING, COMPLETED, FAILED]
+        riskLevel:
+          type: ["string", "null"]
+          enum: [LOW, MODERATE, HIGH, CRITICAL, null]
+        confidence:
+          type: ["string", "null"]
+          enum: [LOW, MEDIUM, HIGH, null]
+        createdAt:
+          type: string
+          format: date-time
+      required: [id, cropName, location, mainConcern, status, riskLevel, confidence, createdAt]
+    AdvisoryList:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdvisorySummary"
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+      required: [items, page, limit, total]
+    DashboardStats:
+      type: object
+      properties:
+        totalAdvisories:
+          type: integer
+        highRiskCount:
+          type: integer
+        cropsAnalyzed:
+          type: integer
+        recentAdvisory:
+          anyOf:
+            - $ref: "#/components/schemas/AdvisorySummary"
+            - type: "null"
+        recentActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdvisorySummary"
+      required: [totalAdvisories, highRiskCount, cropsAnalyzed, recentAdvisory, recentActivity]
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 50
+        default: 10
+    AdvisoryId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthorized:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
 
